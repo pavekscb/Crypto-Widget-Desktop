@@ -142,8 +142,8 @@ class CryptoWidget(tk.Tk):
         webbrowser.open(url)
         
     def open_developer_link(self):
-        """Открывает ссылку на Telegram-канал разработчика."""
-        webbrowser.open("https://t.me/cripto_timecoin")
+        """Открывает ссылку на  разработчика."""
+        webbrowser.open("https://github.com/pavekscb/Crypto-Widget-Desktop.git")
 
     def open_settings_and_break(self, event):
         self.open_settings()
