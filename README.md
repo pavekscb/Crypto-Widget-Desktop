@@ -33,7 +33,7 @@ pip install requests
 
 ### 3\. Запуск
 
-1.  Скачайте файл [`crypto_widget.py`](https://www.google.com/search?q=crypto_widget.py) (или клонируйте репозиторий).
+1.  Скачайте файл [`crypto_widget.py`](https://github.com/pavekscb/Crypto-Widget-Desktop/blob/main/crypto_widget.py) (или клонируйте репозиторий).
 2.  Запустите скрипт:
 
 
