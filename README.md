@@ -58,7 +58,7 @@ python crypto_widget.py
 
 ## ⬇️ Готовый EXE-файл
 
-Для пользователей, которые предпочитают не устанавливать Python, скомпилированный **.exe** файл для Windows будет доступен в разделе **[Releases](https://www.google.com/search?q=https://github.com/%D0%92%D0%90%D0%A8_%D0%9B%D0%9E%D0%93%D0%98%D0%9D/%D0%92%D0%90%D0%A8_%D0%A0%D0%95%D0%9F%D0%9E%D0%97%D0%98%D0%A2%D0%9E%D0%A0%D0%98%D0%99/releases)** этого репозитория.
+Для пользователей, которые предпочитают не устанавливать Python, скомпилированный **.exe** файл для Windows будет доступен в разделе **[Releases](https://github.com/pavekscb/Crypto-Widget-Desktop/releases/tag/v1.0.0)** этого репозитория.
 
 -----
 
