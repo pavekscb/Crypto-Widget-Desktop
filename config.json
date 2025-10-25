@@ -1,0 +1,17 @@
+{
+    "base_currency": "usd",
+    "coins": {
+        "bitcoin": "BTC",
+        "ethereum": "ETH",
+        "aptos": "APT",
+        "the-open-network": "TON",
+        "notcoin": "NOT",
+        "dogs-2": "DOGS",
+        "solana": "SOL",
+        "tether-gold": "XAUT"
+    },
+    "font_size": 18,
+    "window_x": 1304,
+    "window_y": 608,
+    "opacity": 1.0
+}
