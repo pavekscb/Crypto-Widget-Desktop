@@ -10,6 +10,7 @@ CONFIG_FILE = 'config.json'
 API_URL = "https://api.coingecko.com/api/v3/simple/price"
 REFRESH_RATE_MS = 60000  # Обновление раз в минуту
 COINGECKO_HOME_LINK = "https://www.coingecko.com/ru" 
+HISTORY_SIZE = 5  # Размер истории трендов (5x)
 
 # --- Управление Конфигурацией ---
 def load_config():
@@ -80,6 +81,9 @@ class CryptoWidget(tk.Tk):
         self.prev_prices = {} 
         self.current_prices = {} 
         
+        # История трендов (храним кортежи: (иконка, цвет))
+        self.trend_history = {api_id: [] for api_id in self.config['coins']}
+        
         self.progress_value = 0
         self.max_progress = REFRESH_RATE_MS // 1000 
         
@@ -142,7 +146,7 @@ class CryptoWidget(tk.Tk):
         webbrowser.open(url)
         
     def open_developer_link(self):
-        """Открывает ссылку на  разработчика."""
+        """Открывает ссылку на разработчика."""
         webbrowser.open("https://github.com/pavekscb/Crypto-Widget-Desktop.git")
 
     def open_settings_and_break(self, event):
@@ -195,6 +199,7 @@ class CryptoWidget(tk.Tk):
         if price is None:
              return "N/A"
         
+        # Форматирование для очень маленьких цен
         if price < 0.01 and price != 0: 
             price_str = f"{price:.8f}".rstrip('0')
             if price_str.endswith('.'):
@@ -202,6 +207,7 @@ class CryptoWidget(tk.Tk):
             if '.' not in price_str:
                 price_str = f"{price:.8f}"
         else:
+            # Форматирование для стандартных цен
             price_str = f"{price:,.4f}" 
             
         return f"{price_str} {currency.upper()}"
@@ -230,28 +236,31 @@ class CryptoWidget(tk.Tk):
         except Exception:
             return 0.0, "---", "gray"
             
-    def get_forecast_icon(self, change_percent):
-        """Возвращает иконку и цвет прогноза на основе текущего тренда."""
+    def get_forecast_tuple(self, change_percent):
+        """Возвращает кортеж (иконка, цвет) прогноза."""
         if change_percent > 0.01:
-            return "▲", "green" # Рост
+            return ("▲", "green") # Рост
         elif change_percent < -0.01:
-            return "▼", "red" # Падение
+            return ("▼", "red") # Падение
         else:
-            return "▬", "gray" # Стабильность / Нет данных
+            return ("▬", "gray") # Стабильность / Нет данных
 
     def show_forecast_explanation(self, event):
         """Показывает всплывающее окно с объяснением логики прогноза."""
         explanation = (
-            "ЛОГИКА ПРОГНОЗА:\n\n"
-            "Этот значок отображает ПРЕДПОЛОЖЕНИЕ о продолжении текущего тренда, "
-            "основанное на изменении курса за последние 60 секунд (интервал обновления).\n\n"
+            "ЛОГИКА ПРОГНОЗА И ИСТОРИИ ТРЕНДОВ:\n\n"
+            "Эти значки отображают ПРЕДПОЛОЖЕНИЕ о продолжении тренда, "
+            f"основанное на изменении курса за последние {REFRESH_RATE_MS // 1000} секунд (интервал обновления).\n\n"
             " • ▲ (Зеленый): Цена выросла более чем на 0.01% с последнего обновления.\n"
             " • ▼ (Красный): Цена упала более чем на 0.01% с последнего обновления.\n"
             " • ▬ (Серый): Цена осталась стабильной (изменение менее 0.01%).\n\n"
+            "СТОЛБЕЦ ТРЕНДА:\n"
+            f"Визуализация показывает **{HISTORY_SIZE} последних** трендов. Если вы видите '▲▲▼▬▼', это означает, что "
+            "монета росла в двух последних циклах обновления, потом упала, была стабильна и снова упала.\n\n"
             "ВНИМАНИЕ: Это не финансовый совет и не точный прогноз, а лишь простая визуализация инерции."
         )
         self.unbind("<Button-1>")
-        messagebox.showinfo("Что такое Прогноз?", explanation)
+        messagebox.showinfo("Что такое Тренд?", explanation)
         self.bind("<Button-1>", self.start_move)
 
     def show_coin_explanation(self, event):
@@ -261,13 +270,13 @@ class CryptoWidget(tk.Tk):
             "Для добавления монеты в Настройках необходимо знать ее Идентификатор API (API ID) "
             "на CoinGecko. Это служебное имя, которое иногда отличается от имени в URL.\n\n"
             "➡️ ПРИМЕР: TON (The Open Network)\n"
-            "   1. Идентификатор API: 'the-open-network'\n"
-            "   2. В поле 'Имя' (Виджет) введите: 'TON'\n\n"
+            "   1. Идентификатор API: 'the-open-network'\n"
+            "   2. В поле 'Имя' (Виджет) введите: 'TON'\n\n"
             "➡️ ПРИМЕР: DOGS (Dogs on Ton)\n"
-            "   1. Страница монеты (URL): .../dogs\n"
-            "   2. Идентификатор API: 'dogs-2'\n\n" 
-            "   *Если ID монеты не работает (напр., 'dogs-2'), попробуйте найти точный ID через Google, "
-            "    используя фразу 'CoinGecko API ID [Название монеты]'."
+            "   1. Страница монеты (URL): .../dogs\n"
+            "   2. Идентификатор API: 'dogs-2'\n\n" 
+            "   *Если ID монеты не работает (напр., 'dogs-2'), попробуйте найти точный ID через Google, "
+            "    используя фразу 'CoinGecko API ID [Название монеты]'."
         )
         self.unbind("<Button-1>")
         messagebox.showinfo("Как добавить монету?", explanation)
@@ -294,7 +303,14 @@ class CryptoWidget(tk.Tk):
         # 4. Очищаем текущие цены перед заполнением
         self.current_prices.clear()
         
-        # 5. Перерисовка виджета
+        # 5. Обновляем trend_history для новых монет (если они появились)
+        for api_id in coin_ids:
+            if api_id not in self.trend_history:
+                # Храним кортежи (иконка, цвет)
+                self.trend_history[api_id] = [] 
+
+        
+        # 6. Перерисовка виджета
         for widget in self.coins_frame.winfo_children():
             widget.destroy()
         
@@ -314,8 +330,8 @@ class CryptoWidget(tk.Tk):
         # Колонка 2: Изм. %
         tk.Label(self.coins_frame, text="Изм. %:", font=header_font, bg='SystemButtonFace', fg='darkblue').grid(row=row_num, column=2, sticky='e', padx=(5, 10))
         
-        # Колонка 3: Прогноз (с привязкой к объяснению)
-        forecast_header_label = tk.Label(self.coins_frame, text="Прогноз:", font=header_font, bg='SystemButtonFace', fg='darkblue', cursor="question_arrow")
+        # Колонка 3: Тренд (5x) (с привязкой к объяснению)
+        forecast_header_label = tk.Label(self.coins_frame, text=f"Тренд ({HISTORY_SIZE}x):", font=header_font, bg='SystemButtonFace', fg='darkblue', cursor="question_arrow") 
         forecast_header_label.grid(row=row_num, column=3, sticky='e', padx=(5, 0))
         forecast_header_label.bind("<Button-1>", self.show_forecast_explanation)
         
@@ -352,13 +368,20 @@ class CryptoWidget(tk.Tk):
                 prev_price = self.prev_prices.get(api_id)
                 
                 change_percent, change_str, change_color = self.calculate_change_percent(price, prev_price)
-                forecast_icon, forecast_color = self.get_forecast_icon(change_percent)
+                current_forecast_tuple = self.get_forecast_tuple(change_percent) # Получаем ТЕКУЩИЙ кортеж (иконка, цвет)
 
+                # --- ЛОГИКА ИСТОРИИ ТРЕНДОВ ---
+                if prev_price is not None:
+                    # Добавляем текущий кортеж (иконка, цвет) в историю
+                    self.trend_history[api_id].append(current_forecast_tuple) 
+                    # Оставляем только HISTORY_SIZE последних
+                    self.trend_history[api_id] = self.trend_history[api_id][-HISTORY_SIZE:] 
+                
                 # Колонка 1: Курс
                 price_label = tk.Label(
                     self.coins_frame, 
                     text=price_str, 
-                    fg='green', 
+                    fg='darkgreen', 
                     bg='SystemButtonFace', 
                     font=('Arial', font_size) 
                 )
@@ -374,18 +397,40 @@ class CryptoWidget(tk.Tk):
                 )
                 change_label.grid(row=row_num, column=2, sticky='e', padx=(5, 10)) 
                 
-                # Колонка 3: Прогноз (Стрелка)
-                forecast_label = tk.Label(
-                    self.coins_frame, 
-                    text=forecast_icon, 
-                    fg=forecast_color, 
-                    bg='SystemButtonFace', 
-                    font=('Arial', max(8, font_size - 2)) 
-                )
-                forecast_label.grid(row=row_num, column=3, sticky='e', padx=(5, 0)) 
+                # --- Колонка 3: История трендов (Новая логика) ---
+                
+                # Фрейм для вывода значков (нужен для выравнивания)
+                forecast_frame = tk.Frame(self.coins_frame, bg='SystemButtonFace')
+                forecast_frame.grid(row=row_num, column=3, sticky='e', padx=(5, 0)) 
+                
+                # Выводим значки по одному, индивидуально окрашивая
+                for i, (icon, color) in enumerate(self.trend_history[api_id]):
+                    # Создаем отдельную метку для каждого значка
+                    icon_label = tk.Label(
+                        forecast_frame, 
+                        text=icon, 
+                        fg=color, # <--- ИНДИВИДУАЛЬНАЯ ОКРАСКА!
+                        bg='SystemButtonFace', 
+                        font=('Arial', max(8, font_size - 2)) 
+                    )
+                    icon_label.pack(side=tk.LEFT, padx=0, pady=0) 
+                    
+                # Дополняем пробелами, если история неполная (для выравнивания)
+                if len(self.trend_history[api_id]) < HISTORY_SIZE:
+                    empty_count = HISTORY_SIZE - len(self.trend_history[api_id])
+                    # Используем пустой значок "▬" серого цвета, чтобы место было занято
+                    for _ in range(empty_count):
+                         tk.Label(
+                            forecast_frame, 
+                            text=" ", # Используем пробел для пустоты
+                            fg='gray', 
+                            bg='SystemButtonFace', 
+                            font=('Arial', max(8, font_size - 2)) 
+                        ).pack(side=tk.LEFT, padx=0, pady=0)
+
 
             else:
-                # Если нет данных
+                # Если нет данных (например, неверный ID или API ошибка)
                 error_label = tk.Label(
                     self.coins_frame, 
                     text="---", 
@@ -395,12 +440,17 @@ class CryptoWidget(tk.Tk):
                 error_label.grid(row=row_num, column=1, sticky='e', padx=(5, 10))
                 
                 tk.Label(self.coins_frame, text="---", fg='gray', bg='SystemButtonFace', font=('Arial', max(8, font_size - 2))).grid(row=row_num, column=2, sticky='e', padx=(5, 10))
-                tk.Label(self.coins_frame, text="❓", fg='gray', bg='SystemButtonFace', font=('Arial', max(8, font_size - 2))).grid(row=row_num, column=3, sticky='e', padx=(5, 0))
+                
+                # Если нет данных, выводим 5 знаков вопроса
+                tk.Label(self.coins_frame, text="❓" * HISTORY_SIZE, fg='gray', bg='SystemButtonFace', font=('Arial', max(8, font_size - 2))).grid(row=row_num, column=3, sticky='e', padx=(5, 0)) 
 
             row_num += 1
 
         self.coins_frame.grid_columnconfigure(1, weight=1)
         self.coins_frame.grid_columnconfigure(2, weight=1)
+        # Колонка 3 должна содержать фрейм с пятью отдельными значками
+        self.coins_frame.grid_columnconfigure(3, weight=0)
+        self.coins_frame.update_idletasks() # Обновление для корректного расчета размера
 
     # --- Методы настроек (SettingsWindow) ---
     def open_settings(self):
@@ -411,9 +461,13 @@ class CryptoWidget(tk.Tk):
         self.config = new_config
         save_config(self.config)
         self.attributes('-alpha', self.config.get('opacity', 0.95))
+        # Сброс истории трендов при изменении списка монет
+        new_coin_ids = set(self.config['coins'].keys())
+        # Обратите внимание: history теперь хранит (иконка, цвет)
+        self.trend_history = {api_id: self.trend_history.get(api_id, []) for api_id in new_coin_ids}
         self.update_widget() 
 
-# --- GUI Окно Настроек ---
+# --- GUI Окно Настроек (без изменений) ---
 class SettingsWindow(tk.Toplevel):
     def __init__(self, master, config):
         super().__init__(master)
