@@ -1,17 +1,34 @@
 {
     "base_currency": "usd",
     "coins": {
-        "bitcoin": "BTC",
-        "ethereum": "ETH",
-        "aptos": "APT",
-        "the-open-network": "TON",
-        "notcoin": "NOT",
-        "dogs-2": "DOGS",
-        "solana": "SOL",
-        "tether-gold": "XAUT"
+        "bitcoin": {
+            "name": "BTC",
+            "amount": 0.05
+        },
+        "ethereum": {
+            "name": "ETH",
+            "amount": 10.0
+        },
+        "aptos": {
+            "name": "APT",
+            "amount": 100.0
+        },
+        "notcoin": {
+            "name": "NOT",
+            "amount": 1000000.0
+        },
+        "dogs-2": {
+            "name": "DOGS",
+            "amount": 2000000.0
+        },
+        "solana": {
+            "name": "SOL",
+            "amount": 100.0
+        }
     },
-    "font_size": 18,
-    "window_x": 1304,
-    "window_y": 608,
-    "opacity": 1.0
+    "font_size": 8,
+    "window_x": 594,
+    "window_y": 447,
+    "opacity": 0.95,
+    "autostart_enabled": true
 }
