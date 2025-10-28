@@ -2,53 +2,53 @@
     "coins": {
         "bitcoin": {
             "name": "BTC",
-            "amount": 0.001
+            "amount": 0.01
         },
         "ethereum": {
             "name": "ETH",
-            "amount": 0.016
+            "amount": 0.10016
         },
         "aptos": {
             "name": "APT",
-            "amount": 332.62
+            "amount": 2320.62
         },
         "notcoin": {
             "name": "NOT",
-            "amount": 3024155.0
+            "amount": 5024155.0
         },
         "dogs-2": {
             "name": "DOGS",
-            "amount": 40311108.0
+            "amount": 41411108.0
         },
         "solana": {
             "name": "SOL",
-            "amount": 10.0245
+            "amount": 10.00245
         },
         "athene-network-2": {
             "name": "ATN",
-            "amount": 4084.0
+            "amount": 32084.0
         },
         "duckchain-token": {
             "name": "DUCK",
-            "amount": 52471.0
+            "amount": 54371.0
         },
         "the-open-network": {
             "name": "TON",
-            "amount": 90.058
+            "amount": 100.058
         },
         "tether-gold": {
             "name": "XAUT",
-            "amount": 10.000202
+            "amount": 0.0010202
         }
     },
-    "font_size": 19,
+    "font_size": 12,
     "opacity": 1.0,
     "refresh_rate_ms": 60000,
     "autostart_enabled": false,
     "hide_on_close": true,
     "theme": "light",
-    "notification_mode": "disabled",
-    "notification_duration_sec": 60,
+    "notification_mode": "always",
+    "notification_duration_sec": 10,
     "notification_position": "bottom_right",
     "notification_font_size": 10,
     "notification_width": 300,
@@ -56,8 +56,8 @@
     "sort_key": "name",
     "sort_reverse": false,
     "base_currency": "usd",
-    "window_x": 872,
-    "window_y": 466,
+    "window_x": 659,
+    "window_y": 596,
     "notification_x": null,
     "notification_y": null,
     "notify_window_x": null,
@@ -65,7 +65,7 @@
     "notify_window_width": 500,
     "notify_window_height": 400,
     "notification_scale": 1.0,
-    "notification_window_x": 885,
-    "notification_window_y": 77,
-    "notification_window_size": "max"
+    "notification_window_x": 763,
+    "notification_window_y": 38,
+    "notification_window_size": "min"
 }
