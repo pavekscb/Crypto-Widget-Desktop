@@ -40,12 +40,12 @@ RUN_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
 # Сообщения для уведомлений о трендах в зависимости от длины серии (>= 2)
 TREND_MESSAGES = {
     1: {
-        "BULLISH": "0 ПРИЗНАК: Возможен восходящий импульс.",
-        "BEARISH": "0 ПРИЗНАК: Возможен нисходящий импульс."
+        "BULLISH": "НАЧАЛЬНЫЙ ПРИЗНАК: Возможен восходящий импульс.",
+        "BEARISH": "НАЧАЛЬНЫЙ ПРИЗНАК: Возможен нисходящий импульс."
     },
     2: {
-        "BULLISH": "ПЕРВЫЙ ПРИЗНАК: Возможен восходящий импульс.",
-        "BEARISH": "ПЕРВЫЙ ПРИЗНАК: Возможен нисходящий импульс."
+        "BULLISH": "ПОДВТЕРЖДЕЮЩИЙСЯ ПРИЗНАК: Возможен восходящий импульс.",
+        "BEARISH": "ПОДТВЕРЖДАЮЩИЙСЯ ПРИЗНАК: Возможен нисходящий импульс."
     },
     3: {
         "BULLISH": "УСИЛЕНИЕ: Подтверждается краткосрочный восходящий тренд.",
@@ -292,18 +292,18 @@ def get_crypto_prices(coin_ids, currency):
 # Конфигурация размеров окна: 'max' и 'min'
 SIZE_CONFIGS = {
     'max': {
-        'desired_width': 650,    # Принудительная ширина окна
-        'wraplength': 600,       # Длина обертывания текста сообщения
-        'font_title': 20,        # Размер шрифта для заголовка монеты
-        'font_message': 18,      # Размер шрифта для основного сообщения
-        'font_percent': 20,      # Размер шрифта для процентов
+        'desired_width': 650,    # Принудительная ширина окна 650
+        'wraplength': 600,       # Длина обертывания текста сообщения 600 
+        'font_title': 20,        # Размер шрифта для заголовка монеты 20
+        'font_message': 18,      # Размер шрифта для основного сообщения 18
+        'font_percent': 20,      # Размер шрифта для процентов 20
     },
     'min': {
-        'desired_width': 380,    # Уменьшенная ширина окна
-        'wraplength': 350,       # Уменьшенная длина обертывания
-        'font_title': 12,        # Уменьшенный шрифт для заголовка монеты
-        'font_message': 10,      # Уменьшенный шрифт для основного сообщения
-        'font_percent': 12,      # Уменьшенный шрифт для процентов
+        'desired_width': 450,    # Уменьшенная ширина окна 380
+        'wraplength': 400,       # Уменьшенная длина обертывания 350
+        'font_title': 12,        # Уменьшенный шрифт для заголовка монеты 12
+        'font_message': 10,      # Уменьшенный шрифт для основного сообщения 10
+        'font_percent': 12,      # Уменьшенный шрифт для процентов 12
     }
 }
 
@@ -321,6 +321,12 @@ class NotificationWindow(tk.Toplevel):
         self.overrideredirect(True)
         self.attributes('-topmost', True)
         
+        # ---  ПРИМЕНЕНИЕ ПРОЗРАЧНОСТИ для всплывающего окна ---
+        opacity_value = self.master.config.get('opacity', 0.95) 
+        self.attributes('-alpha', opacity_value) 
+        # -------------------------------------------------
+
+
         self.drag_x = 0
         self.drag_y = 0
         
@@ -358,7 +364,7 @@ class NotificationWindow(tk.Toplevel):
         scrollable_frame = tk.Frame(self, bg=bg_color)
         scrollable_frame.pack(fill='both', expand=True, padx=15, pady=(0, 5))
         
-        canvas = tk.Canvas(scrollable_frame, bg=bg_color, highlightthickness=0)
+        canvas = tk.Canvas(scrollable_frame, bg=bg_color, highlightthickness=0, height=450)
         scrollbar = tk.Scrollbar(scrollable_frame, orient="vertical", command=canvas.yview)
         
         self.signals_frame = tk.Frame(canvas, bg=bg_color)
@@ -406,15 +412,35 @@ class NotificationWindow(tk.Toplevel):
             ).pack(side=tk.LEFT, fill='x')
             
             # Процент изменения (Используем размер шрифта из size_config)
+
+            # Процент изменения (Используем размер шрифта из size_config)
             percent_str = f"+{change_percent:.2f}%" if change_percent > 0 else f"{change_percent:.2f}%"
-            
+
+            # Базовые значения
+            percent_font = ('Arial', self.size_config['font_percent'], 'bold')
+            percent_color = trend_color
+
+            # Многоуровневая подсветка
+            if abs(change_percent) >= 10:
+                percent_font = ('Arial', self.size_config['font_percent'] + 16, 'bold')
+                percent_color = '#FF3333'  # ярко-красный
+            elif abs(change_percent) >= 1:
+                percent_font = ('Arial', self.size_config['font_percent'] + 8, 'bold')
+                percent_color = '#FF6600'  # неоново-оранжевый
+            elif abs(change_percent) >= 0.1:
+                percent_font = ('Arial', self.size_config['font_percent'] + 4, 'bold')
+                percent_color = '#FFD700'  # золотой
+
             tk.Label(
                 coin_frame, 
                 text=f"{percent_str}", 
-                font=('Arial', self.size_config['font_percent'], 'bold'), 
-                fg=trend_color, 
+                font=percent_font, 
+                fg=percent_color, 
                 bg=bg_color
             ).pack(side=tk.RIGHT)
+
+
+            
             
             # Основное сообщение (Используем размер шрифта и wraplength из size_config)
             message = TREND_MESSAGES[series_length][trend_type]
@@ -1279,6 +1305,7 @@ class CryptoWidget(tk.Tk):
 
         # 4. ВЫЗОВ КОНСОЛИДИРОВАННОГО ОКНА УВЕДОМЛЕНИЙ ПОСЛЕ ЗАВЕРШЕНИЯ ЦИКЛА
         if active_trend_signals:
+            active_trend_signals.sort(key=lambda s: abs(s['change_percent']), reverse=True)
             self.show_consolidated_notification(active_trend_signals)
 
         self.coins_frame.update_idletasks() 
