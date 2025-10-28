@@ -39,6 +39,10 @@ RUN_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
 
 # Сообщения для уведомлений о трендах в зависимости от длины серии (>= 2)
 TREND_MESSAGES = {
+    1: {
+        "BULLISH": "0 ПРИЗНАК: Возможен восходящий импульс.",
+        "BEARISH": "0 ПРИЗНАК: Возможен нисходящий импульс."
+    },
     2: {
         "BULLISH": "ПЕРВЫЙ ПРИЗНАК: Возможен восходящий импульс.",
         "BEARISH": "ПЕРВЫЙ ПРИЗНАК: Возможен нисходящий импульс."
@@ -182,6 +186,8 @@ def load_config():
         "font_size": 10,
         "window_x": None, 
         "window_y": None,
+        "notification_window_x": None, # НОВОЕ: Позиция окна уведомления X
+        "notification_window_y": None, # НОВОЕ: Позиция окна уведомления Y
         "opacity": 0.95,
         "autostart_enabled": True,
         "hide_on_close": True, 
@@ -219,7 +225,7 @@ def load_config():
                     config[key] = default_val
                     
             # Миграция: если старая настройка отключена, устанавливаем режим "disabled"
-            if not config['trend_notifications_enabled'] and config['notification_mode'] == default_config['notification_mode']:
+            if 'trend_notifications_enabled' in config and not config['trend_notifications_enabled'] and config.get('notification_mode', default_config['notification_mode']) == default_config['notification_mode']:
                  config['notification_mode'] = 'disabled'
             # Удаляем старую настройку
             if 'trend_notifications_enabled' in config:
@@ -282,38 +288,76 @@ def get_crypto_prices(coin_ids, currency):
         return {}
         
 # --- Всплывающее Окно Уведомлений ---
+
+# Конфигурация размеров окна: 'max' и 'min'
+SIZE_CONFIGS = {
+    'max': {
+        'desired_width': 650,    # Принудительная ширина окна
+        'wraplength': 600,       # Длина обертывания текста сообщения
+        'font_title': 20,        # Размер шрифта для заголовка монеты
+        'font_message': 18,      # Размер шрифта для основного сообщения
+        'font_percent': 20,      # Размер шрифта для процентов
+    },
+    'min': {
+        'desired_width': 380,    # Уменьшенная ширина окна
+        'wraplength': 350,       # Уменьшенная длина обертывания
+        'font_title': 12,        # Уменьшенный шрифт для заголовка монеты
+        'font_message': 10,      # Уменьшенный шрифт для основного сообщения
+        'font_percent': 12,      # Уменьшенный шрифт для процентов
+    }
+}
+
 class NotificationWindow(tk.Toplevel):
     def __init__(self, master, active_signals, duration_sec): 
         super().__init__(master)
         
-        # self.overrideredirect(True) # Убираем рамку окна
-        self.attributes('-topmost', True) # Всегда сверху
+        self.master = master
+        
+        # --- Загрузка текущего режима размера ---
+        self.current_size_mode = self.master.config.get('notification_window_size', 'max')
+        self.size_config = SIZE_CONFIGS[self.current_size_mode]
+        # ----------------------------------------
+        
+        self.overrideredirect(True)
+        self.attributes('-topmost', True)
+        
+        self.drag_x = 0
+        self.drag_y = 0
         
         # Выбираем цвета и фон
-        bg_color = '#000000' # Темный фон было #3C3C3C
-        fg_color = '#FFFFFF' # Белый текст
-        header_color = '#4EC9B0' # Бирюзовый для заголовка
+        bg_color = '#000000' 
+        fg_color = '#FFFFFF' 
+        header_color = '#4EC9B0' 
         
         self.config(bg=bg_color)
         
-        self.duration_sec = duration_sec # Длительность из настроек
+        self.duration_sec = duration_sec
         self.time_left = duration_sec 
-        self.timer_id = None # Для after_cancel
+        self.timer_id = None
         
         # Общий заголовок
-        tk.Label(
+        header_label = tk.Label(
             self, 
             text="🚨 Обнаружены тренды! 🚨", 
             font=('Arial', 14, 'bold'), 
             fg=header_color, 
             bg=bg_color
-        ).pack(padx=15, pady=(10, 5), fill='x')
+        )
+        header_label.pack(padx=15, pady=(10, 5), fill='x')
+
+        # Привязка событий для перетаскивания
+        self.bind("<Button-1>", self.start_move)
+        self.bind("<B1-Motion>", self.do_move)
+        self.bind("<ButtonRelease-1>", self.on_release)
+        header_label.bind("<Button-1>", self.start_move)
+        header_label.bind("<B1-Motion>", self.do_move)
+        header_label.bind("<ButtonRelease-1>", self.on_release)
+
 
         # Фрейм для скроллинга, если сигналов много
         scrollable_frame = tk.Frame(self, bg=bg_color)
         scrollable_frame.pack(fill='both', expand=True, padx=15, pady=(0, 5))
         
-        # Использование Canvas и Scrollbar для списка сигналов
         canvas = tk.Canvas(scrollable_frame, bg=bg_color, highlightthickness=0)
         scrollbar = tk.Scrollbar(scrollable_frame, orient="vertical", command=canvas.yview)
         
@@ -352,42 +396,55 @@ class NotificationWindow(tk.Toplevel):
             importance_arrows = trend_icon * series_length 
             title_prefix = "📈 БЫЧИЙ" if trend_type == "BULLISH" else "📉 МЕДВЕЖИЙ"
             
-            # Заголовок монеты (Стрелочки + Имя + Тип + Серия)
+            # Заголовок монеты (Используем размер шрифта из size_config)
             tk.Label(
                 coin_frame, 
                 text=f"{importance_arrows} {coin_name} ({title_prefix}) ({series_length}/{HISTORY_SIZE})", 
-                font=('Arial', 10, 'bold'), 
+                font=('Arial', self.size_config['font_title'], 'bold'), 
                 fg=trend_color, 
                 bg=bg_color
             ).pack(side=tk.LEFT, fill='x')
             
-            # Процент изменения
+            # Процент изменения (Используем размер шрифта из size_config)
             percent_str = f"+{change_percent:.2f}%" if change_percent > 0 else f"{change_percent:.2f}%"
             
             tk.Label(
                 coin_frame, 
                 text=f"{percent_str}", 
-                font=('Arial', 10, 'bold'), 
+                font=('Arial', self.size_config['font_percent'], 'bold'), 
                 fg=trend_color, 
                 bg=bg_color
             ).pack(side=tk.RIGHT)
             
-            # Основное сообщение
+            # Основное сообщение (Используем размер шрифта и wraplength из size_config)
             message = TREND_MESSAGES[series_length][trend_type]
             tk.Label(
                 self.signals_frame, 
                 text=message, 
-                font=('Arial', 9), 
+                font=('Arial', self.size_config['font_message']), 
                 fg=fg_color, 
                 bg=bg_color,
                 justify=tk.LEFT,
-                wraplength=600 
+                wraplength=self.size_config['wraplength'] # <--- Используем wraplength из конфига
             ).pack(fill='x', pady=(0, 5))
             
-        # Фрейм для нижней части с кнопкой и таймером
+        # Фрейм для нижней части с кнопками
         bottom_buttons_frame = tk.Frame(self, bg=bg_color)
         bottom_buttons_frame.pack(fill='x', padx=15, pady=(5, 10))
 
+        # --- НОВЫЙ ЭЛЕМЕНТ: Кнопка-переключатель размера ---
+        self.size_button = tk.Button(
+            bottom_buttons_frame,
+            text="[ S ]" if self.current_size_mode == 'min' else "[ L ]", # S для Small, L для Large
+            command=self.toggle_size,
+            font=('Arial', 9),
+            bg='#444444', 
+            fg=fg_color,
+            bd=0,
+            relief=tk.FLAT
+        )
+        self.size_button.pack(side=tk.LEFT, padx=(0, 10))
+        
         # Кнопка закрытия
         tk.Button(
             bottom_buttons_frame, 
@@ -405,19 +462,110 @@ class NotificationWindow(tk.Toplevel):
             bottom_buttons_frame,
             text=f"Закрытие через {self.time_left} сек...",
             font=('Arial', 9),
-            fg='#FFD700', # Желтый цвет
+            fg='#FFD700',
             bg=bg_color
         )
         self.countdown_label.pack(side=tk.RIGHT)
 
 
-        # Центрирование окна (нужно обновить геометрию после создания всех виджетов)
+        # Установка позиции (загрузка сохраненной или центрирование)
         self.update_idletasks()
-        self.center_window(min_width=400, max_width=600, max_height=600)
-        
+        self.load_window_position() # Использует DESIRED_WIDTH из size_config
+
         # Автоматическое закрытие и отсчет
         self.timer_id = self.after(1000, self.update_countdown)
+
+    # --- НОВЫЙ МЕТОД: Переключение размера ---
+    def toggle_size(self):
+        """Переключает режим размера окна и сохраняет его в конфиге."""
+        # Определяем новый режим
+        new_mode = 'min' if self.current_size_mode == 'max' else 'max'
         
+        # Сохраняем в конфиге
+        self.master.config['notification_window_size'] = new_mode
+        save_config(self.master.config) 
+        
+        # Закрываем текущее окно (чтобы заставить его открыться в новом размере при следующем уведомлении)
+        # ИЛИ, если мы хотим изменить размер немедленно:
+        
+        # 1. Запоминаем текущую позицию
+        current_x = self.winfo_x()
+        current_y = self.winfo_y()
+        self.master.config['notification_window_x'] = current_x
+        self.master.config['notification_window_y'] = current_y
+        
+        # 2. Перезапускаем окно с новым режимом
+        self.after_cancel(self.timer_id)
+        self.destroy()
+        
+        # Создаем и открываем новое окно с теми же сигналами, но новым размером
+        # (Это нужно реализовать в основном классе CryptoWidget, но для простоты
+        # при следующем срабатывании оно откроется с новым размером. 
+        # Если нужно переоткрыть немедленно, это усложнит код, 
+        # поэтому давайте пока закроем его, чтобы он запомнил.)
+        
+        # ВАЖНО: При следующем уведомлении (или перезапуске программы) окно откроется в новом размере.
+        # Если необходимо мгновенное переключение, нужно будет доработать логику взаимодействия 
+        # с родительским классом CryptoWidget, чтобы он мог пересоздать NotificationWindow.
+        
+        # Пока просто закрываем, чтобы сохранить новый размер.
+        # self.close_window() # Уже делаем это через self.destroy()
+
+        messagebox.showinfo(
+            "Настройка сохранена", 
+            f"Размер окна уведомлений изменен на '{new_mode}'.\n"
+            f"Изменение вступит в силу при следующем тренд-уведомлении."
+        )
+
+
+    # --- МЕТОДЫ ДЛЯ ПЕРЕТАСКИВАНИЯ И ПОЗИЦИИ ---
+    def load_window_position(self):
+        """Загружает позицию из конфига или центрирует, принудительно устанавливая ширину."""
+        config = self.master.config
+        x = config.get('notification_window_x')
+        y = config.get('notification_window_y')
+
+        # --- Используем ширину из текущей конфигурации размера ---
+        DESIRED_WIDTH = self.size_config['desired_width']
+        # ---------------------------------------------------------
+
+        self.update_idletasks() 
+        height = self.winfo_height()
+
+        if x is None or y is None:
+            screen_width = self.winfo_screenwidth()
+            screen_height = self.winfo_screenheight()
+            
+            x = (screen_width // 2) - (DESIRED_WIDTH // 2) 
+            y = (screen_height // 2) - (height // 2)
+        
+        self.geometry(f'{DESIRED_WIDTH}x{height}+{x}+{y}') 
+
+    def start_move(self, event):
+        """Начало перетаскивания."""
+        self.drag_x = event.x
+        self.drag_y = event.y
+        return "break"
+
+    def do_move(self, event):
+        """Перемещение окна."""
+        new_x = event.x_root - self.drag_x
+        new_y = event.y_root - self.drag_y
+        self.geometry(f'+{new_x}+{new_y}')
+    
+    def on_release(self, event):
+        """Сохранение позиции при отпускании кнопки мыши."""
+        self.save_window_position()
+
+    def save_window_position(self):
+        """Сохраняет текущую позицию окна в конфиг."""
+        self.update_idletasks()
+        x = self.winfo_x()
+        y = self.winfo_y()
+        self.master.config['notification_window_x'] = x
+        self.master.config['notification_window_y'] = y
+        save_config(self.master.config) 
+
     def update_countdown(self):
         """Обновляет таймер обратного отсчета."""
         self.time_left -= 1
@@ -428,34 +576,17 @@ class NotificationWindow(tk.Toplevel):
 
         self.countdown_label.config(text=f"Закрытие через {self.time_left} сек...")
         
-        # Запускаем следующий отсчет
         self.timer_id = self.after(1000, self.update_countdown)
         
-    def center_window(self, min_width=400, max_width=600, max_height=600):
-        """Центрирует окно уведомления на экране с учетом динамического размера и ограничений."""
-        width = self.winfo_reqwidth()
-        height = self.winfo_reqheight()
-        
-        # Применяем ограничения размера
-        width = max(min_width, min(width, max_width))
-        height = min(height, max_height)
-        
-        # Принудительно устанавливаем размер
-        self.geometry(f'{width}x{height}')
-        
-        screen_width = self.winfo_screenwidth()
-        screen_height = self.winfo_screenheight()
-        
-        x = (screen_width // 2) - (width // 2)
-        y = (screen_height // 2) - (height // 2)
-        
-        self.geometry(f'+{x}+{y}')
-        
     def close_window(self):
-        """Закрывает окно уведомления и отменяет таймер."""
+        """Закрывает окно уведомления и отменяет таймер, сохраняя позицию."""
+        self.save_window_position()
         if hasattr(self, 'timer_id') and self.timer_id:
             self.after_cancel(self.timer_id)
         self.destroy()
+
+# ... (Остальной код класса CryptoWidget остается без изменений)
+
 
 # --- GUI Виджет (Основное окно) ---
 class CryptoWidget(tk.Tk):
@@ -1081,8 +1212,8 @@ class CryptoWidget(tk.Tk):
                     max_series_length = 0
                     trend_icon = None
                     
-                    # Проходим от самой длинной серии (5) до самой короткой (2)
-                    for length in range(HISTORY_SIZE, 1, -1): # 5, 4, 3, 2
+                    # Проходим от самой длинной серии (5) до самой короткой (1)
+                    for length in range(HISTORY_SIZE, 0, -1): # 5, 4, 3, 2, 1
                         if len(history) >= length:
                             last_n_icons = [t[0] for t in history[-length:]]
                             
@@ -1096,7 +1227,7 @@ class CryptoWidget(tk.Tk):
                                 break # Нашли самую длинную, выходим
 
                     # 3. СБОР СИГНАЛА вместо отправки уведомления
-                    if max_series_length >= 2:
+                    if max_series_length >= 1:
                         trend_type = "BULLISH" if trend_icon == '▲' else "BEARISH"
                         
                         active_trend_signals.append({
@@ -1610,3 +1741,4 @@ if __name__ == '__main__':
     # --------------------------------
     
     app.mainloop()
+
