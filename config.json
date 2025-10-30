@@ -2,27 +2,27 @@
     "coins": {
         "bitcoin": {
             "name": "BTC",
-            "amount": 0.01
+            "amount": 10.0
         },
         "ethereum": {
             "name": "ETH",
-            "amount": 0.10016
+            "amount": 10.00016
         },
         "aptos": {
             "name": "APT",
-            "amount": 2320.62
+            "amount": 2322.62
         },
         "notcoin": {
             "name": "NOT",
-            "amount": 5024155.0
+            "amount": 10124155.0
         },
         "dogs-2": {
             "name": "DOGS",
-            "amount": 41411108.0
+            "amount": 43111108.0
         },
         "solana": {
             "name": "SOL",
-            "amount": 10.00245
+            "amount": 20.00245
         },
         "athene-network-2": {
             "name": "ATN",
@@ -30,23 +30,23 @@
         },
         "duckchain-token": {
             "name": "DUCK",
-            "amount": 54371.0
+            "amount": 56471.0
         },
         "the-open-network": {
             "name": "TON",
-            "amount": 100.058
+            "amount": 120.058
         },
         "tether-gold": {
             "name": "XAUT",
-            "amount": 0.0010202
+            "amount": 2.02e-05
         }
     },
-    "font_size": 12,
+    "font_size": 8,
     "opacity": 1.0,
     "refresh_rate_ms": 60000,
     "autostart_enabled": false,
     "hide_on_close": true,
-    "theme": "light",
+    "theme": "dark",
     "notification_mode": "always",
     "notification_duration_sec": 10,
     "notification_position": "bottom_right",
@@ -56,8 +56,8 @@
     "sort_key": "name",
     "sort_reverse": false,
     "base_currency": "usd",
-    "window_x": 659,
-    "window_y": 596,
+    "window_x": 1349,
+    "window_y": 619,
     "notification_x": null,
     "notification_y": null,
     "notify_window_x": null,
@@ -65,7 +65,8 @@
     "notify_window_width": 500,
     "notify_window_height": 400,
     "notification_scale": 1.0,
-    "notification_window_x": 763,
-    "notification_window_y": 38,
-    "notification_window_size": "min"
+    "notification_window_x": 1486,
+    "notification_window_y": 36,
+    "notification_window_size": "min",
+    "trend_threshold_percent": 0.01
 }
