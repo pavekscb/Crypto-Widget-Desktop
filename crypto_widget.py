@@ -183,6 +183,7 @@ def load_config():
             "bitcoin": {"name": "BTC", "amount": 0.0}, 
             "ethereum": {"name": "ETH", "amount": 0.0}
         },
+        "trend_threshold_percent": 0.01, # процент при котором выскакивает окошко оповещения о тренде
         "font_size": 10,
         "window_x": None, 
         "window_y": None,
@@ -931,6 +932,8 @@ class CryptoWidget(tk.Tk):
         y = self.winfo_y()
         self.config['window_x'] = x
         self.config['window_y'] = y
+        # self.config['trend_threshold_percent'] = float(self.threshold_var.get())
+
         save_config(self.config)
 
     def load_window_position(self):
@@ -1016,14 +1019,17 @@ class CryptoWidget(tk.Tk):
                  return "0.00"
         
     def calculate_change_percent(self, current_price, prev_price):
-        if prev_price is None or prev_price == 0: return 0.0, "---", "gray" 
+        if prev_price is None or prev_price == 0:
+            return 0.0, "---", "gray" 
             
         try:
+            threshold = self.config.get('trend_threshold_percent', 0.01)
             change = ((current_price - prev_price) / prev_price) * 100
-            if change > 0.01:
+
+            if change > threshold:
                 color = 'green'
                 prefix = '+'
-            elif change < -0.01:
+            elif change < -threshold:
                 color = 'red'
                 prefix = ''
             else:
@@ -1035,8 +1041,9 @@ class CryptoWidget(tk.Tk):
             return 0.0, "---", "gray"
             
     def get_forecast_tuple(self, change_percent):
-        if change_percent > 0.01: return ("▲", "green")
-        elif change_percent < -0.01: return ("▼", "red")
+        threshold = self.config.get('trend_threshold_percent', 0.01)
+        if change_percent > threshold: return ("▲", "green")
+        elif change_percent < -threshold: return ("▼", "red")
         else: return ("▬", "gray") 
 
     def show_forecast_explanation(self, event):
@@ -1324,7 +1331,10 @@ class CryptoWidget(tk.Tk):
             set_startup(new_autostart)
             
         self.config = new_config
+        # self.config['trend_threshold_percent'] = float(self.threshold_var.get()) - ошибочно добавил
+        
         save_config(self.config)
+
         self.attributes('-alpha', self.config.get('opacity', 0.95))
         
         # Обновляем initial_coin_order, если были добавлены/удалены монеты
@@ -1361,7 +1371,9 @@ class SettingsWindow(tk.Toplevel):
         
         x = (screen_width // 2) - (target_width // 2)
         y = (screen_height // 2) - (target_height // 2)
-        self.geometry(f'{target_width}x{target_height}+{x}+{y}')
+        self.geometry(f'{target_width}x{target_height}+{10}+{10}') # новое
+        # self.geometry(f'{target_width}x{target_height}+{x}+{y}')
+        # self.geometry(f"{window_width}x{window_height}+10+10") # выводим слева вверху экрана
         
         current_theme = self.master.config.get('theme', 'light')
         current_theme_colors = THEMES.get(current_theme, THEMES['light'])
@@ -1384,7 +1396,7 @@ class SettingsWindow(tk.Toplevel):
         tk.Frame(main_content_frame, height=1, bg="gray").pack(fill='x', padx=10, pady=5)
         
         # --- Настройки Темы --- 
-        header_font = ('Arial', 9, 'bold') 
+        header_font = ('Arial', 6, 'bold') 
         
         tk.Label(main_content_frame, text="Настройки Темы:", font=header_font, bg=current_theme_colors['bg'], fg=current_theme_colors['settings_fg']).pack(pady=(5, 5)) 
 
@@ -1515,6 +1527,32 @@ class SettingsWindow(tk.Toplevel):
 
         tk.Frame(main_content_frame, height=1, bg="gray").pack(fill='x', padx=10, pady=5) 
         
+        # --- Порог изменения процента для тренда ---
+        tk.Label(main_content_frame, text="Минимальный процент изменения для тренда (%):", 
+                 font=header_font, bg=current_theme_colors['bg'], 
+                 fg=current_theme_colors['settings_fg']).pack(pady=(5, 5))
+
+        threshold_frame = tk.Frame(main_content_frame, bg=current_theme_colors['bg'])
+        threshold_frame.pack(fill='x', padx=10)
+
+        self.threshold_var = tk.DoubleVar(value=self.config.get('trend_threshold_percent', 0.01))
+        self.threshold_label = tk.Label(
+            threshold_frame, 
+            text=f"Текущий: {self.threshold_var.get():.3f}%", 
+            bg=current_theme_colors['bg'], 
+            fg=current_theme_colors['settings_fg']
+        )
+        self.threshold_label.pack(side=tk.RIGHT)
+
+        ttk.Scale(
+            threshold_frame, from_=0.01, to=10.0, orient='horizontal',
+            variable=self.threshold_var,
+            command=lambda v: self.threshold_label.config(text=f'Текущий: {float(v):.2f}%')
+        ).pack(side=tk.LEFT, fill='x', expand=True, padx=(0, 10))
+
+        tk.Frame(main_content_frame, height=1, bg="gray").pack(fill='x', padx=10, pady=5)
+
+
         # --- Настройки шрифта и прозрачности ---
         tk.Label(main_content_frame, text="Размер шрифта курсов:", font=header_font, bg=current_theme_colors['bg'], fg=current_theme_colors['settings_fg']).pack(pady=(5, 5)) 
         font_frame = tk.Frame(main_content_frame, bg=current_theme_colors['bg']); font_frame.pack(fill='x', padx=10)
@@ -1713,8 +1751,11 @@ class SettingsWindow(tk.Toplevel):
              
         self.config['hide_on_close'] = self.hide_var.get()
         self.config['theme'] = self.theme_var.get() 
+        #self.config['trend_threshold_percent'] = float(self.threshold_var.get())
+        self.config['trend_threshold_percent'] = round(float(self.threshold_var.get()), 2)
         self.config['notification_mode'] = self.notify_mode_var.get()
         self.config['notification_duration_sec'] = int(self.duration_var.get())
+        
 
         # 3. Сохранение общих настроек (берем из временных значений, которые были в master.config)
         self.config['font_size'] = int(self.font_var.get())
