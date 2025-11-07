@@ -2,53 +2,45 @@
     "coins": {
         "bitcoin": {
             "name": "BTC",
-            "amount": 10.0
+            "amount": 0.001
         },
         "ethereum": {
             "name": "ETH",
-            "amount": 10.00016
-        },
-        "aptos": {
-            "name": "APT",
-            "amount": 2322.62
+            "amount": 0.16
         },
         "notcoin": {
             "name": "NOT",
-            "amount": 10124155.0
+            "amount": 24155.0
         },
         "dogs-2": {
             "name": "DOGS",
-            "amount": 43111108.0
-        },
-        "solana": {
-            "name": "SOL",
-            "amount": 20.00245
-        },
-        "athene-network-2": {
-            "name": "ATN",
-            "amount": 32084.0
+            "amount": 111108.0
         },
         "duckchain-token": {
             "name": "DUCK",
-            "amount": 56471.0
+            "amount": 54471.0
         },
         "the-open-network": {
             "name": "TON",
-            "amount": 120.058
+            "amount": 230.058
         },
         "tether-gold": {
             "name": "XAUT",
-            "amount": 2.02e-05
+            "amount": 10.000202
+        },
+        "aptos": {
+            "name": "APT",
+            "amount": 2425.0
         }
     },
-    "font_size": 8,
+    "font_size": 17,
     "opacity": 1.0,
     "refresh_rate_ms": 60000,
-    "autostart_enabled": false,
+    "autostart_enabled": true,
     "hide_on_close": true,
     "theme": "dark",
     "notification_mode": "always",
-    "notification_duration_sec": 10,
+    "notification_duration_sec": 60,
     "notification_position": "bottom_right",
     "notification_font_size": 10,
     "notification_width": 300,
@@ -56,8 +48,8 @@
     "sort_key": "name",
     "sort_reverse": false,
     "base_currency": "usd",
-    "window_x": 1349,
-    "window_y": 619,
+    "window_x": 8,
+    "window_y": 604,
     "notification_x": null,
     "notification_y": null,
     "notify_window_x": null,
@@ -65,8 +57,8 @@
     "notify_window_width": 500,
     "notify_window_height": 400,
     "notification_scale": 1.0,
-    "notification_window_x": 1486,
-    "notification_window_y": 36,
+    "notification_window_x": 1237,
+    "notification_window_y": 434,
     "notification_window_size": "min",
-    "trend_threshold_percent": 0.01
+    "trend_threshold_percent": 0.47
 }
