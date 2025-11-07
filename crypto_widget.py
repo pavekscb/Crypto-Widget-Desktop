@@ -28,7 +28,8 @@ except locale.Error:
 
 
 # --- Константы ---
-CONFIG_FILE = 'config.json'
+BASE_DIR = os.path.dirname(os.path.abspath(sys.argv[0]))
+CONFIG_FILE = os.path.join(BASE_DIR, 'config.json')
 API_URL = "https://api.coingecko.com/api/v3/simple/price"
 REFRESH_RATE_MS = 60000 # Обновление раз в минуту
 COINGECKO_HOME_LINK = "https://www.coingecko.com/ru" 
@@ -264,29 +265,38 @@ def save_config(config):
 
 # --- Получение данных (API) ---
 def get_crypto_prices(coin_ids, currency):
-    """Получает курсы криптовалют с CoinGecko API (только CoinGecko)."""
+    """Получает цены и процент изменения за 24ч с CoinGecko."""
     if not coin_ids:
         return {}
-    
-    ids_str = ",".join(coin_ids)
-    
+
     try:
         response = requests.get(
-            API_URL, 
-            params={'ids': ids_str, 'vs_currencies': currency}, 
+            "https://api.coingecko.com/api/v3/coins/markets",
+            params={
+                "vs_currency": currency,
+                "ids": ",".join(coin_ids),
+                "price_change_percentage": "24h"
+            },
             timeout=10
         )
-        response.raise_for_status() 
-        return response.json()
-    except requests.exceptions.HTTPError as e:
-        if response.status_code == 429:
-             print("Ошибка API: 429 Too Many Requests. Проверьте интервал обновлений (должен быть >= 60 секунд).")
-        else:
-            print(f"Ошибка HTTP: {e}")
-        return {}
+        response.raise_for_status()
+        data = response.json()
+
+        # Преобразуем ответ в формат, совместимый со старым кодом
+        result = {}
+        for item in data:
+            result[item["id"]] = {
+                currency: item["current_price"],
+                "change_24h": item.get("price_change_percentage_24h", 0.0),
+                "market_cap": item.get("market_cap"),
+                "volume": item.get("total_volume")
+            }
+        return result
+
     except requests.exceptions.RequestException as e:
         print(f"Ошибка сети/API: {e}")
         return {}
+
         
 # --- Всплывающее Окно Уведомлений ---
 
@@ -1020,7 +1030,7 @@ class CryptoWidget(tk.Tk):
         
     def calculate_change_percent(self, current_price, prev_price):
         if prev_price is None or prev_price == 0:
-            return 0.0, "---", "gray" 
+            return 0.0, "(0.00%)", "gray" 
             
         try:
             threshold = self.config.get('trend_threshold_percent', 0.01)
@@ -1038,7 +1048,7 @@ class CryptoWidget(tk.Tk):
                 
             return change, f"({prefix}{change:.2f}%)", color
         except Exception:
-            return 0.0, "---", "gray"
+            return 0.0, "(0.00%)", "gray"
             
     def get_forecast_tuple(self, change_percent):
         threshold = self.config.get('trend_threshold_percent', 0.01)
@@ -1105,7 +1115,14 @@ class CryptoWidget(tk.Tk):
         """Обновляет курсы и перерисовывает виджет в виде таблички."""
         
         font_size = self.config['font_size']
-        coin_ids = list(self.config['coins'].keys())
+        # Собираем уникальные базовые ID для API-запроса (aptos_2 → aptos)
+        #coin_ids = list(self.config['coins'].keys())
+        coin_ids = []
+        for cid in self.config['coins'].keys():
+            base_id = cid.split('_')[0]  # отрезаем "_2", "_3" и т.д.
+            if base_id not in coin_ids:
+                coin_ids.append(base_id)
+
         currency = self.config['base_currency']
         
         theme_name = self.config.get('theme', 'light')
@@ -1180,7 +1197,7 @@ class CryptoWidget(tk.Tk):
 
         # Остальные заголовки без сортировки
         tk.Label(self.coins_frame, text="Стоимость:", font=header_font, bg=colors['bg'], fg=colors['header_fg']).grid(row=row_num, column=3, sticky='e', padx=(5, 10))
-        tk.Label(self.coins_frame, text="Изм. %:", font=header_font, bg=colors['bg'], fg=colors['header_fg']).grid(row=row_num, column=4, sticky='e', padx=(5, 10))
+        tk.Label(self.coins_frame, text="Изм. % | за 24часа:", font=header_font, bg=colors['bg'], fg=colors['header_fg']).grid(row=row_num, column=4, sticky='e', padx=(5, 10))
         forecast_header_label = tk.Label(self.coins_frame, text=f"Тренд ({HISTORY_SIZE}x):", font=header_font, bg=colors['bg'], fg=colors['header_fg'], cursor="question_arrow") 
         forecast_header_label.grid(row=row_num, column=5, sticky='e', padx=(5, 0))
         forecast_header_label.bind("<Button-1>", self.show_forecast_explanation)
@@ -1217,9 +1234,11 @@ class CryptoWidget(tk.Tk):
             # Колонка 1: Количество монет (Amount)
             tk.Label(self.coins_frame, text=self.format_amount(amount), fg=colors['amount_fg'], bg=colors['bg'], font=('Arial', font_size)).grid(row=row_num, column=1, sticky='e', padx=(5, 10))
 
-
-            if api_id in data and currency in data[api_id]:
-                price = data[api_id][currency]
+            
+            base_id = api_id.split('_')[0]
+            if base_id in data and currency in data[base_id]:
+                price = data[base_id][currency]
+                change_24h = data[base_id].get("change_24h", 0.0)
                 self.current_prices[api_id] = price 
                 
                 try:
@@ -1276,9 +1295,28 @@ class CryptoWidget(tk.Tk):
                 
                 # Колонка 3: Стоимость (Value)
                 tk.Label(self.coins_frame, text=self.format_total_value(current_value, currency), fg=colors['total_value_fg'], bg=colors['bg'], font=('Arial', font_size, 'bold')).grid(row=row_num, column=3, sticky='e', padx=(5, 10)) 
-                
-                # Колонка 4: Процентное изменение
-                tk.Label(self.coins_frame, text=change_str, fg=change_color, bg=colors['bg'], font=('Arial', max(8, font_size - 2))).grid(row=row_num, column=4, sticky='e', padx=(5, 10)) 
+
+                # Колонка 4: 
+                #tk.Label(self.coins_frame, text=f"{change_str}, {change_24h:+.2f}%", fg=("green" if change_24h > 0 else "red" if change_24h < 0 else colors['fg']), bg=colors['bg'], font=('Arial', max(8, font_size - 2)), justify='right').grid(row=row_num, column=4, sticky='e', padx=(5, 10))
+
+                # Определяем цвета отдельно
+                color_local = change_color
+                color_24h = "green" if change_24h > 0 else "red" if change_24h < 0 else colors['fg']
+
+                # Фрейм для двух значений в одной ячейке
+                frame = tk.Frame(self.coins_frame, bg=colors['bg'])
+                frame.grid(row=row_num, column=4, sticky='e', padx=(5, 10))
+
+                # Локальное изменение
+                tk.Label(frame, text=f"{change_str}", fg=color_local, bg=colors['bg'], font=('Arial', max(8, font_size - 2))).pack(side='left')
+
+                # Разделительная черта
+                tk.Label(frame,text=" | ", fg=colors['fg'], bg=colors['bg'], font=('Arial', max(8, font_size - 2))).pack(side='left')
+
+                # Изменение за 24 часа
+                tk.Label(frame, text=f"{change_24h:+.2f}%", fg=color_24h, bg=colors['bg'], font=('Arial', max(8, font_size - 2))).pack(side='left')
+
+
                 
                 # Колонка 5: История трендов
                 forecast_frame = tk.Frame(self.coins_frame, bg=colors['bg'])
@@ -1713,9 +1751,24 @@ class SettingsWindow(tk.Toplevel):
             messagebox.showerror("Ошибка", "Поля 'ID монеты' и 'Имя' должны быть заполнены.")
             return
 
+        #if api_id in self.config['coins']:
+        #    messagebox.showwarning("Предупреждение", f"Монета '{api_id}' уже есть в списке.")
+        #    return
+
         if api_id in self.config['coins']:
-            messagebox.showwarning("Предупреждение", f"Монета '{api_id}' уже есть в списке.")
-            return
+            proceed = messagebox.askyesno("Предупреждение", f"Монета '{api_id}' уже есть в списке.\n\n" "Хотите добавить её ещё раз как второй пул (с другим именем)?")
+            if not proceed:
+                return
+         # --- Проверка и автоматическое создание уникального ID ---
+        original_api_id = api_id
+        counter = 2
+        while api_id in self.config['coins']:
+            api_id = f"{original_api_id}_{counter}"
+            counter += 1
+
+
+
+
 
         self.config['coins'][api_id] = {"name": display_name, "amount": 0.0}
         self.update_coin_list()
